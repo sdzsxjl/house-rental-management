@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}账单详情 - {{ bill.room.full_room_code }} {{ bill.bill_month }}{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="/billing?month={{ bill.bill_month }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> 返回工作表
+    </a>
+</div>
+
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card table-card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-receipt me-2"></i>
+                    {{ bill.bill_month[:4] }}年{{ bill.bill_month[5:7]|int }}月 账单详情
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-6">
+                        <small class="text-muted">房间</small>
+                        <div class="fw-bold">{{ bill.room.full_room_code }}</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">租客</small>
+                        <div class="fw-bold">
+                            {% set tenant = bill.room.current_tenant %}
+                            {{ tenant.name if tenant else '空置' }}
+                        </div>
+                    </div>
+                </div>
+
+                <table class="table table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>项目</th>
+                            <th>上月读数</th>
+                            <th>本月读数</th>
+                            <th>用量</th>
+                            <th>单价</th>
+                            <th>金额</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><i class="bi bi-droplet text-info"></i> 水费</td>
+                            <td>{{ bill.water_previous_reading }}</td>
+                            <td>{{ bill.water_current_reading }}</td>
+                            <td>{{ bill.water_usage }} 方</td>
+                            <td>{{ bill.water_unit_price }} 元/方</td>
+                            <td class="text-info fw-bold">¥{{ "{:.2f}".format(bill.water_fee) }}</td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-lightning text-warning"></i> 电费</td>
+                            <td>{{ bill.electricity_previous_reading }}</td>
+                            <td>{{ bill.electricity_current_reading }}</td>
+                            <td>{{ bill.electricity_usage }} 度</td>
+                            <td>{{ bill.electricity_unit_price }} 元/度</td>
+                            <td class="text-warning fw-bold">¥{{ "{:.2f}".format(bill.electricity_fee) }}</td>
+                        </tr>
+                        <tr>
+                            <td><i class="bi bi-house"></i> 房租</td>
+                            <td colspan="4">月租金</td>
+                            <td class="fw-bold">¥{{ "{:.2f}".format(bill.monthly_rent) }}</td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="5" class="fw-bold text-end">合计应收</td>
+                            <td class="text-danger fw-bold fs-5">¥{{ "{:.2f}".format(bill.total_amount) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <!-- 分享文本 -->
+        <div class="card table-card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-share me-2"></i>微信分享文本</span>
+                <button class="btn btn-sm btn-success" onclick="copyText(`{{ share_text|replace('`','\\`')|safe }}`, this)">
+                    <i class="bi bi-clipboard"></i> 一键复制
+                </button>
+            </div>
+            <div class="card-body">
+                <pre class="bg-light p-3 rounded" style="font-size:0.9rem;white-space:pre-wrap;margin:0">{{ share_text }}</pre>
+            </div>
+        </div>
+
+        <!-- 操作 -->
+        <div class="card table-card mt-3">
+            <div class="card-header bg-white">
+                <i class="bi bi-gear me-2"></i>操作
+            </div>
+            <div class="card-body">
+                <a href="/billing/{{ bill.id }}/delete" class="btn btn-danger"
+                   onclick="return confirm('确定删除此账单？删除后不可恢复。')">
+                    <i class="bi bi-trash"></i> 删除账单
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

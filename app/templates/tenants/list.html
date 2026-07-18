@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}租客管理 - 房屋租赁收租管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold m-0"><i class="bi bi-people me-2"></i>租客管理</h4>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTenantModal">
+        <i class="bi bi-plus-lg"></i> 添加租客
+    </button>
+</div>
+
+<!-- 统计概览 -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="stat-number text-primary">{{ tenants|length }}</div>
+            <div class="stat-label">在住租客</div>
+        </div>
+    </div>
+</div>
+
+<!-- 租客列表 -->
+<div class="card table-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>姓名</th><th>房号</th><th>电话</th><th>微信</th>
+                        <th>月租</th><th>缴费日</th><th>合同到期</th><th>本月状态</th><th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in tenants %}
+                    {% set contract = t.current_contract %}
+                    {% set room = t.current_room %}
+                    <tr>
+                        <td>
+                            <a href="/tenants/{{ t.id }}" class="fw-bold text-decoration-none">{{ t.name }}</a>
+                        </td>
+                        <td>
+                            {% if room %}
+                            <span class="badge bg-secondary">{{ room.full_room_code }}</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ t.phone }}</td>
+                        <td>{{ t.wechat_id or '—' }}</td>
+                        <td class="fw-bold">{% if contract %}¥{{ "{:,.0f}".format(contract.monthly_rent) }}{% else %}—{% endif %}</td>
+                        <td>{% if contract %}每月 {{ contract.payment_due_day }} 号{% else %}—{% endif %}</td>
+                        <td>{% if contract %}{{ contract.contract_end_date }}{% else %}—{% endif %}</td>
+                        <td>
+                            {% set paid_this_month = false %}
+                            {% for p in t.payments %}
+                                {% if p.rent_month == stats_month_key %}
+                                    {% set paid_this_month = true %}
+                                {% endif %}
+                            {% endfor %}
+                            {% if paid_this_month %}
+                            <span class="badge badge-paid">已缴</span>
+                            {% else %}
+                            <span class="badge badge-overdue">待缴</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="/tenants/{{ t.id }}" class="btn btn-sm btn-outline-primary">详情</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if not tenants %}
+        <p class="text-center text-muted py-5">还没有添加租客，点击右上角"添加租客"开始</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 添加租客模态框 -->
+<div class="modal fade" id="addTenantModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="/tenants/add">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-lg me-2"></i>添加租客</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">姓名 *</label>
+                            <input type="text" name="name" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">手机号 *</label>
+                            <input type="text" name="phone" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">微信号</label>
+                            <input type="text" name="wechat_id" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">楼层 *</label>
+                            <select name="floor" class="form-select" required>
+                                {% for i in range(1, 12) %}
+                                <option value="{{ i }}">{{ i }} 楼</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">房号 *</label>
+                            <input type="text" name="room_number" class="form-control" placeholder="如 501" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">月租金 (元) *</label>
+                            <input type="number" name="monthly_rent" class="form-control" step="0.01" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">押金 (元)</label>
+                            <input type="number" name="deposit" class="form-control" step="0.01" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">每月缴费日</label>
+                            <select name="payment_due_day" class="form-select">
+                                {% for d in range(1, 29) %}
+                                <option value="{{ d }}" {% if d == 1 %}selected{% endif %}>{{ d }} 号</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">合同开始 *</label>
+                            <input type="date" name="contract_start" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">合同到期 *</label>
+                            <input type="date" name="contract_end" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">确认添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

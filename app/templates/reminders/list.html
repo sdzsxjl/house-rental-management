@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}催租面板 - 房屋租赁收租管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold m-0"><i class="bi bi-bell me-2"></i>催租面板</h4>
+        <small class="text-muted">{{ today }} · {{ month_key }} 月租金收缴</small>
+    </div>
+    <div class="d-flex gap-2">
+        {% if tenant_notify and reminders.total > 0 %}
+        <a href="/reminders/send-all-to-tenants" class="btn btn-danger"
+           onclick="return confirm('将直接给所有待催租客发短信/微信消息，确定吗？')">
+            <i class="bi bi-send-fill"></i> 一键直推全部租客
+        </a>
+        {% elif landlord_notify and reminders.total > 0 %}
+        <a href="/reminders/send-all" class="btn btn-warning"
+           onclick="return confirm('将推送催租汇总到你的手机，确定吗？')">
+            <i class="bi bi-bell-fill"></i> 一键推送给房东
+        </a>
+        {% endif %}
+        <a href="/reminders/run-check" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-repeat"></i> 刷新检查
+        </a>
+    </div>
+</div>
+
+{% if request.query_params.get('sent') %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="bi bi-check-circle"></i>
+    已成功推送 {{ request.query_params.get('sent') }} 条提醒！
+    {% if request.query_params.get('tenant') %}
+    (租客: {{ request.query_params.get('tenant') }})
+    {% endif %}
+    {% if request.query_params.get('skipped') %}
+    · 跳过 {{ request.query_params.get('skipped') }} 条今天已发送过的
+    {% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+{% if request.query_params.get('direct') %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="bi bi-check-circle"></i>
+    已直接推送给租客 {{ request.query_params.get('tenant') }}！
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+{% if request.query_params.get('direct_all') %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="bi bi-send-check"></i>
+    批量直推完成：成功 {{ request.query_params.get('sent') }} 户，
+    跳过 {{ request.query_params.get('skipped') }} 户（今天已发过），
+    {% if request.query_params.get('failed') != '0' %}失败 {{ request.query_params.get('failed') }} 户{% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+{% if request.query_params.get('error') == 'no_channel' %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    尚未配置通知推送渠道。请前往 <a href="/settings" class="alert-link">系统设置</a> 配置。
+</div>
+{% endif %}
+{% if request.query_params.get('error') == 'no_tenant_channel' %}
+<div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    尚未配置直推租客的渠道（短信或企微客户联系）。请前往 <a href="/settings" class="alert-link">系统设置</a> 配置。
+</div>
+{% endif %}
+{% if request.query_params.get('skipped') == 'no_need' %}
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i> 该租客暂时不需要催收。
+</div>
+{% endif %}
+
+<!-- 统计 -->
+<div class="row g-3 mb-4">
+    <div class="col-4">
+        <div class="card card-stat p-3 text-center">
+            <div class="stat-number text-info">{{ reminders.gentle|length }}</div>
+            <div class="stat-label">需温和提醒</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card card-stat p-3 text-center">
+            <div class="stat-number text-warning">{{ reminders.warning|length }}</div>
+            <div class="stat-label">需催缴警告</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card card-stat p-3 text-center">
+            <div class="stat-number text-danger">{{ reminders.overdue|length }}</div>
+            <div class="stat-label">严重逾期</div>
+        </div>
+    </div>
+</div>
+
+{% if reminders.total == 0 %}
+<div class="text-center py-5">
+    <i class="bi bi-emoji-smile fs-1 text-success"></i>
+    <h5 class="mt-2 text-success">暂无需要催收的租客！</h5>
+    <p class="text-muted">所有租客本月已缴费或在缴费日前</p>
+</div>
+{% else %}
+
+<!-- 催收清单 -->
+{% for tier_name, tier_label, tier_color in [("overdue", "严重逾期", "danger"), ("warning", "催缴警告", "warning"), ("gentle", "温和提醒", "info")] %}
+{% if reminders[tier_name] %}
+<div class="mb-4">
+    <h5 class="text-{{ tier_color }} mb-3">
+        <i class="bi bi-exclamation-diamond-fill me-2"></i>{{ tier_label }} ({{ reminders[tier_name]|length }}户)
+    </h5>
+    {% for r in reminders[tier_name] %}
+    <div class="card table-card p-3 mb-2">
+        <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <strong>{{ r.tenant.name }}</strong>
+                    <span class="badge bg-secondary">{{ r.room.full_room_code }}</span>
+                    <span class="badge bg-{{ tier_color }}">逾期 {{ r.days_overdue }} 天</span>
+                    <span class="text-muted small">月租 ¥{{ "{:,.0f}".format(r.contract.monthly_rent) }}</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted small">📱 {{ r.tenant.phone }}</span>
+                    {% if r.tenant.wechat_id %}
+                    <span class="text-muted small">💬 {{ r.tenant.wechat_id }}</span>
+                    {% endif %}
+                </div>
+                <div class="mt-2 p-2 bg-light rounded" style="border-left: 3px solid var(--bs-{{ tier_color }})">
+                    <small class="text-secondary">💬 建议发送：</small><br>
+                    <span class="fw-medium">{{ r.text }}</span>
+                </div>
+            </div>
+            <div class="d-flex gap-1 ms-3 flex-shrink-0">
+                <button class="btn btn-sm btn-outline-secondary btn-copy"
+                        onclick="copyText('{{ r.text | e }}', this)" title="复制文案手动发送">
+                    <i class="bi bi-clipboard"></i> 复制
+                </button>
+                {% if tenant_notify %}
+                <a href="/reminders/send-to-tenant/{{ r.tenant.id }}" class="btn btn-sm btn-danger"
+                   title="直接发给租客（短信/微信）"
+                   onclick="return confirm('确定直接将此催租消息发给 {{ r.tenant.name }} ({{ r.tenant.phone }})？')">
+                    <i class="bi bi-send-fill"></i> 直推租客
+                </a>
+                {% elif landlord_notify %}
+                <a href="/reminders/send-to-tenant/{{ r.tenant.id }}" class="btn btn-sm btn-outline-warning"
+                   title="推送到你的手机" onclick="return confirm('确定推送提醒？')">
+                    <i class="bi bi-bell"></i> 提醒我
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+<!-- 催租历史 -->
+<hr class="my-4">
+<h5 class="fw-bold mb-3">📋 近期催租记录</h5>
+{% if recent_logs %}
+<div class="card table-card">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-light">
+                <tr><th>日期</th><th>租客</th><th>月份</th><th>类型</th><th>消息摘要</th></tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td>{{ log.sent_at }}</td>
+                    <td>{{ log.tenant.name }}</td>
+                    <td>{{ log.rent_month }}</td>
+                    <td>
+                        {% if log.reminder_type == 'gentle' %}
+                        <span class="badge bg-info">温和</span>
+                        {% elif log.reminder_type == 'warning' %}
+                        <span class="badge bg-warning">警告</span>
+                        {% else %}
+                        <span class="badge bg-danger">逾期</span>
+                        {% endif %}
+                    </td>
+                    <td><small class="text-muted">{{ log.message_text[:60] }}...</small></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<p class="text-muted">暂无催租记录</p>
+{% endif %}
+{% endblock %}

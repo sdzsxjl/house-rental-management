@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}{{ tenant.name }} - 租客详情{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="/tenants" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i> 返回列表</a>
+        <h4 class="fw-bold mt-1">{{ tenant.name }}
+            {% if tenant.current_room %}
+            <span class="badge bg-secondary ms-2">{{ tenant.current_room.full_room_code }}</span>
+            {% endif %}
+        </h4>
+    </div>
+    <div>
+        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editTenantModal">
+            <i class="bi bi-pencil"></i> 编辑
+        </button>
+        <a href="/tenants/{{ tenant.id }}/delete" class="btn btn-outline-danger btn-sm"
+           onclick="return confirm('确定删除该租客？相关合同将同时停用。')">
+            <i class="bi bi-trash"></i> 删除
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- 基本信息 -->
+    <div class="col-md-4">
+        <div class="card table-card p-3">
+            <h6 class="fw-bold mb-3">📋 基本信息</h6>
+            <table class="table table-sm mb-0">
+                <tr><td class="text-muted" style="width:80px">姓名</td><td><strong>{{ tenant.name }}</strong></td></tr>
+                <tr><td class="text-muted">手机</td><td>{{ tenant.phone }}</td></tr>
+                <tr><td class="text-muted">微信</td><td>{{ tenant.wechat_id or '未填写' }}</td></tr>
+                <tr><td class="text-muted">身份证</td><td>{{ tenant.id_card_number or '未填写' }}</td></tr>
+                <tr><td class="text-muted">备注</td><td>{{ tenant.notes or '—' }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- 合同信息 -->
+    <div class="col-md-8">
+        <div class="card table-card p-3 mb-3">
+            <h6 class="fw-bold mb-3">📝 租赁合同</h6>
+            {% if tenant.current_contract %}
+            {% set c = tenant.current_contract %}
+            <div class="row g-2">
+                <div class="col-6 col-md-3">
+                    <div class="stat-label">月租金</div>
+                    <div class="fw-bold text-primary">¥{{ "{:,.0f}".format(c.monthly_rent) }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-label">押金</div>
+                    <div class="fw-bold">¥{{ "{:,.0f}".format(c.deposit) }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-label">缴费日</div>
+                    <div class="fw-bold">每月 {{ c.payment_due_day }} 号</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-label">房号</div>
+                    <div class="fw-bold">{{ c.room.full_room_code }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-label">合同开始</div>
+                    <div>{{ c.contract_start_date }}</div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="stat-label">合同到期</div>
+                    <div>{{ c.contract_end_date }}</div>
+                </div>
+            </div>
+            {% else %}
+            <p class="text-muted">暂无有效合同</p>
+            {% endif %}
+        </div>
+
+        <!-- 缴费历史 -->
+        <div class="card table-card p-3">
+            <h6 class="fw-bold mb-3">💰 缴费记录</h6>
+            <!--  快速记账 -->
+            <div class="mb-3">
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                    <i class="bi bi-plus-lg"></i> 记账
+                </button>
+            </div>
+            {% if tenant.payments %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th>月份</th><th>金额</th><th>支付日期</th><th>方式</th><th>状态</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for p in tenant.payments|sort(attribute='rent_month', reverse=True) %}
+                        <tr>
+                            <td>{{ p.rent_month }}</td>
+                            <td class="fw-bold">¥{{ "{:,.0f}".format(p.amount) }}</td>
+                            <td>{{ p.payment_date }}</td>
+                            <td>
+                                {% if p.payment_method == 'wechat' %}微信
+                                {% elif p.payment_method == 'alipay' %}支付宝
+                                {% elif p.payment_method == 'bank_transfer' %}银行
+                                {% elif p.payment_method == 'cash' %}现金
+                                {% else %}手动
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if p.is_arrears %}
+                                <span class="badge badge-overdue">逾期{{ p.days_late }}天</span>
+                                {% else %}
+                                <span class="badge badge-paid">正常</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center">暂无缴费记录</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 编辑租客模态框 -->
+<div class="modal fade" id="editTenantModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/tenants/{{ tenant.id }}/edit">
+                <div class="modal-header">
+                    <h5 class="modal-title">编辑租客信息</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">姓名</label>
+                        <input type="text" name="name" class="form-control" value="{{ tenant.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">手机号</label>
+                        <input type="text" name="phone" class="form-control" value="{{ tenant.phone }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">微信号</label>
+                        <input type="text" name="wechat_id" class="form-control" value="{{ tenant.wechat_id or '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <textarea name="notes" class="form-control" rows="2">{{ tenant.notes or '' }}</textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 快速记账模态框 -->
+<div class="modal fade" id="addPaymentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/payments/add">
+                <input type="hidden" name="tenant_id" value="{{ tenant.id }}">
+                <div class="modal-header">
+                    <h5 class="modal-title">快速记账</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">缴费月份</label>
+                        <input type="month" name="rent_month" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">金额 (元)</label>
+                        {% if tenant.current_contract %}
+                        <input type="number" name="amount" class="form-control" step="0.01"
+                               value="{{ tenant.current_contract.monthly_rent }}" required>
+                        {% else %}
+                        <input type="number" name="amount" class="form-control" step="0.01" required>
+                        {% endif %}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">支付方式</label>
+                        <select name="payment_method" class="form-select">
+                            <option value="wechat">微信</option>
+                            <option value="alipay">支付宝</option>
+                            <option value="bank_transfer">银行转账</option>
+                            <option value="cash">现金</option>
+                            <option value="manual">手动记账</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">实际支付日期</label>
+                        <input type="date" name="payment_date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">备注</label>
+                        <input type="text" name="notes" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-success">确认记账</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

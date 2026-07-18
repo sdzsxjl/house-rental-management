@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% block title %}系统设置 - 房屋租赁收租管理{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h4 class="fw-bold"><i class="bi bi-gear me-2"></i>系统设置</h4>
+</div>
+
+{% if request.query_params.get('saved') %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="bi bi-check-circle"></i> 设置已保存！新配置将立即生效。
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if request.query_params.get('password_changed') %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="bi bi-shield-check"></i> 密码已修改！下次登录请使用新密码。
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<div class="row g-4">
+
+    <!-- 通知推送设置 -->
+    <div class="col-lg-8">
+        <div class="card table-card p-4">
+            <h5 class="fw-bold mb-1"><i class="bi bi-bell-fill me-2"></i>通知推送设置</h5>
+            <p class="text-muted small mb-4">配置后，催租消息将自动推送到你的手机，无需手动复制转发。</p>
+
+            <form method="POST" action="/settings/notifications">
+                <!-- 企业微信群机器人 -->
+                <div class="mb-4 p-3 bg-light rounded">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-success me-2">推荐</span>
+                        <h6 class="fw-bold m-0">📱 企业微信群机器人</h6>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <strong>配置步骤：</strong><br>
+                        1. 下载「企业微信」App，用个人身份注册（免费，无需企业认证）<br>
+                        2. 创建一个群聊 → 群设置 → 添加「群机器人」<br>
+                        3. 复制 Webhook 地址，粘贴到下方<br>
+                        <span class="text-warning">⚠ 注意：Webhook URL 包含密钥，请勿泄露</span>
+                    </p>
+                    <label class="form-label small fw-bold">Webhook URL</label>
+                    <input type="text" name="wecom_webhook_url" class="form-control font-monospace small"
+                           value="{{ env_data.WECOM_WEBHOOK_URL }}"
+                           placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxxxx">
+                    {% if settings.WECOM_WEBHOOK_URL %}
+                    <small class="text-success"><i class="bi bi-check-circle"></i> 已配置</small>
+                    {% endif %}
+                </div>
+
+                <!-- Server酱 -->
+                <div class="mb-4 p-3 bg-light rounded">
+                    <div class="d-flex align-items-center mb-2">
+                        <h6 class="fw-bold m-0">🔔 Server酱 (sct.ftqq.com)</h6>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <strong>配置步骤：</strong><br>
+                        1. 访问 <a href="https://sct.ftqq.com/" target="_blank">https://sct.ftqq.com/</a> 微信扫码登录<br>
+                        2. 获取 SendKey<br>
+                        3. 消息将推送到你微信上的「Server酱」公众号<br>
+                        <span class="text-warning">⚠ 免费版每天限 5 条消息</span>
+                    </p>
+                    <label class="form-label small fw-bold">SendKey</label>
+                    <input type="text" name="serverchan_key" class="form-control font-monospace small"
+                           value="{{ env_data.SERVERCHAN_SEND_KEY }}"
+                           placeholder="SCTxxxxxxxxxxxx">
+                    {% if settings.SERVERCHAN_SEND_KEY %}
+                    <small class="text-success"><i class="bi bi-check-circle"></i> 已配置</small>
+                    {% endif %}
+                </div>
+
+                <!-- PushPlus -->
+                <div class="mb-4 p-3 bg-light rounded">
+                    <div class="d-flex align-items-center mb-2">
+                        <h6 class="fw-bold m-0">📬 PushPlus (pushplus.plus)</h6>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <strong>配置步骤：</strong><br>
+                        1. 访问 <a href="https://www.pushplus.plus/" target="_blank">https://www.pushplus.plus/</a> 微信扫码登录<br>
+                        2. 获取 Token<br>
+                        3. 消息将推送到你的微信「PushPlus」公众号<br>
+                        <span class="text-success">✅ 免费版每天限 200 条，推荐！</span>
+                    </p>
+                    <label class="form-label small fw-bold">Token</label>
+                    <input type="text" name="pushplus_token" class="form-control font-monospace small"
+                           value="{{ env_data.PUSHPLUS_TOKEN }}"
+                           placeholder="xxxxxxxxxxxxxxxxxxxx">
+                    {% if settings.PUSHPLUS_TOKEN %}
+                    <small class="text-success"><i class="bi bi-check-circle"></i> 已配置</small>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> 保存推送设置
+                </button>
+            </form>
+        </div>
+
+        <!-- ⭐ 直接推送到租客（租客的微信/手机） -->
+        <div class="card table-card p-4 mt-4">
+            <h5 class="fw-bold mb-1">
+                <i class="bi bi-send-fill me-2 text-danger"></i>直接推送给租客 ⭐
+            </h5>
+            <p class="text-muted small mb-4">
+                配置后，系统将直接把催租消息发给<strong>租客本人</strong>（短信或微信），你完全不用动手！
+            </p>
+
+            <form method="POST" action="/settings/tenant-notifications">
+                <!-- 腾讯云短信 -->
+                <div class="mb-4 p-3 bg-light rounded border-start border-warning border-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-warning me-2">推荐</span>
+                        <h6 class="fw-bold m-0">📱 腾讯云短信 → 租客手机</h6>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <strong>最通用！无论租客用什么App，短信100%能收到。</strong><br>
+                        费用：¥0.045/条（每月66户约 ¥3）<br><br>
+                        <strong>配置步骤：</strong><br>
+                        1. 注册 <a href="https://cloud.tencent.com/product/sms" target="_blank">腾讯云短信服务</a><br>
+                        2. 创建签名（如"房东通知"）和短信模板<br>
+                        3. 短信模板示例：<code>{1}您好，{2}月房租¥{3}请在{4}号前缴纳。</code><br>
+                        4. 获取 SecretId、SecretKey、SDKAppID、模板ID<br>
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">SecretId</label>
+                            <input type="text" name="sms_secret_id" class="form-control font-monospace small"
+                                   value="{{ env_data.SMS_SECRET_ID }}" placeholder="AKIDxxxxxxxx">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">SecretKey</label>
+                            <input type="password" name="sms_secret_key" class="form-control font-monospace small"
+                                   value="{{ env_data.SMS_SECRET_KEY }}" placeholder="xxxxxx">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">SDK App ID</label>
+                            <input type="text" name="sms_sdk_app_id" class="form-control font-monospace small"
+                                   value="{{ env_data.SMS_SDK_APP_ID }}" placeholder="1400xxxx">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">模板 ID</label>
+                            <input type="text" name="sms_template_id" class="form-control font-monospace small"
+                                   value="{{ env_data.SMS_TEMPLATE_ID }}" placeholder="1234567">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">短信签名</label>
+                            <input type="text" name="sms_sign_name" class="form-control small"
+                                   value="{{ env_data.SMS_SIGN_NAME }}" placeholder="房东通知">
+                        </div>
+                    </div>
+                    {% if settings.SMS_SECRET_ID and settings.SMS_SECRET_KEY %}
+                    <small class="text-success mt-1"><i class="bi bi-check-circle"></i> 已配置</small>
+                    {% endif %}
+                </div>
+
+                <!-- 企业微信客户联系 -->
+                <div class="mb-4 p-3 bg-light rounded border-start border-success border-3">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-success me-2">免费</span>
+                        <h6 class="fw-bold m-0">💬 企业微信客户联系 → 租客的微信App</h6>
+                    </div>
+                    <p class="text-muted small mb-2">
+                        <strong>租客在个人微信上收到消息！完全免费！</strong><br><br>
+                        <strong>配置步骤：</strong><br>
+                        1. 打开 <a href="https://work.weixin.qq.com/" target="_blank">企业微信管理后台</a><br>
+                        2. 「客户联系」→ 开启功能<br>
+                        3. 「应用管理」→ 创建自建应用 → 获取 CorpId、Secret、AgentId<br>
+                        4. 在企微App中把租客添加为「客户」（像加微信好友一样）<br>
+                        5. 系统就可以通过API直接给租客的微信发消息了！
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">企业 ID (CorpId)</label>
+                            <input type="text" name="wecom_corp_id" class="form-control font-monospace small"
+                                   value="{{ env_data.WECOM_CORP_ID }}" placeholder="wwxxxxxxxx">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">应用 Secret</label>
+                            <input type="password" name="wecom_agent_secret" class="form-control font-monospace small"
+                                   value="{{ env_data.WECOM_AGENT_SECRET }}" placeholder="xxxxxx">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-bold">应用 AgentId</label>
+                            <input type="text" name="wecom_agent_id" class="form-control font-monospace small"
+                                   value="{{ env_data.WECOM_AGENT_ID }}" placeholder="1000001">
+                        </div>
+                    </div>
+                    {% if settings.WECOM_CORP_ID and settings.WECOM_AGENT_SECRET %}
+                    <small class="text-success mt-1"><i class="bi bi-check-circle"></i> 已配置</small>
+                    {% endif %}
+                </div>
+
+                <button type="submit" class="btn btn-danger">
+                    <i class="bi bi-send-fill"></i> 保存租客直推设置
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 右侧：AI设置 + 密码修改 -->
+    <div class="col-lg-4">
+        <!-- AI 设置 -->
+        <div class="card table-card p-4 mb-4">
+            <h5 class="fw-bold mb-1"><i class="bi bi-robot me-2"></i>AI 设置</h5>
+            <p class="text-muted small mb-3">可选：配置后启用合同拍照解析和智能对账</p>
+
+            <form method="POST" action="/settings/ai">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">API Key</label>
+                    <input type="password" name="llm_api_key" class="form-control small"
+                           value="{{ env_data.LLM_API_KEY }}"
+                           placeholder="sk-xxxxxxxx">
+                    <small class="text-muted">
+                        推荐 <a href="https://platform.deepseek.com/" target="_blank">DeepSeek</a>（¥1/百万Token）
+                    </small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">API 地址</label>
+                    <input type="text" name="llm_api_base" class="form-control small"
+                           value="{{ env_data.LLM_API_BASE }}" placeholder="https://api.deepseek.com/v1">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">模型名称</label>
+                    <input type="text" name="llm_model" class="form-control small"
+                           value="{{ env_data.LLM_MODEL }}" placeholder="deepseek-chat">
+                </div>
+                <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                    <i class="bi bi-check-lg"></i> 保存 AI 设置
+                </button>
+            </form>
+        </div>
+
+        <!-- 修改密码 -->
+        <div class="card table-card p-4">
+            <h5 class="fw-bold mb-1"><i class="bi bi-lock me-2"></i>修改登录密码</h5>
+            <form method="POST" action="/settings/password" class="mt-3">
+                <div class="mb-3">
+                    <label class="form-label small">当前密码</label>
+                    <input type="password" name="current_password" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">新密码</label>
+                    <input type="password" name="new_password" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small">确认新密码</label>
+                    <input type="password" name="confirm_password" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                    <i class="bi bi-shield-lock"></i> 修改密码
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 当前运行状态 -->
+    <div class="col-12">
+        <div class="card table-card p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-info-circle me-2"></i>系统运行状态</h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle me-3 {% if settings.any_landlord_notification_enabled %}bg-success{% else %}bg-secondary{% endif %}"
+                             style="width:12px;height:12px"></div>
+                        <div>
+                            <div class="fw-bold small">通知房东</div>
+                            <small class="text-muted">
+                                {% if settings.WECOM_WEBHOOK_URL %}企微群 ·
+                                {% endif %}
+                                {% if settings.PUSHPLUS_TOKEN %}PushPlus ·
+                                {% endif %}
+                                {% if settings.SERVERCHAN_SEND_KEY %}Server酱 ·
+                                {% endif %}
+                                {% if not settings.any_landlord_notification_enabled %}未配置{% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle me-3 {% if settings.any_tenant_notification_enabled %}bg-warning{% else %}bg-secondary{% endif %}"
+                             style="width:12px;height:12px"></div>
+                        <div>
+                            <div class="fw-bold small">直推租客 ⭐</div>
+                            <small class="text-muted">
+                                {% if settings.SMS_SECRET_ID %}短信 ✓ ·
+                                {% endif %}
+                                {% if settings.WECOM_CORP_ID %}企微→微信 ✓ ·
+                                {% endif %}
+                                {% if not settings.any_tenant_notification_enabled %}未配置{% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle me-3 {% if settings.llm_enabled %}bg-success{% else %}bg-secondary{% endif %}"
+                             style="width:12px;height:12px"></div>
+                        <div>
+                            <div class="fw-bold small">AI 功能</div>
+                            <small class="text-muted">
+                                {% if settings.llm_enabled %}{{ settings.LLM_MODEL }}{% else %}未配置{% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle bg-success me-3" style="width:12px;height:12px"></div>
+                        <div>
+                            <div class="fw-bold small">定时催租</div>
+                            <small class="text-muted">每日 09:00 自动运行</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}欠费清单 - {{ month_key }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="/payments" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i> 缴费记录</a>
+        <h4 class="fw-bold mt-1"><i class="bi bi-exclamation-triangle me-2"></i>欠费清单 — {{ month_key }}</h4>
+    </div>
+    <span class="badge bg-danger fs-6">{{ arrears|length }} 户未缴</span>
+</div>
+
+<div class="card table-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>租客</th><th>房号</th><th>月租</th><th>缴费日</th>
+                        <th>逾期天数</th><th>状态</th><th>手机</th><th>微信</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in arrears %}
+                    <tr>
+                        <td>
+                            <a href="/tenants/{{ a.tenant.id }}" class="text-decoration-none fw-bold">{{ a.tenant.name }}</a>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ a.room.full_room_code }}</span>
+                        </td>
+                        <td>¥{{ "{:,.0f}".format(a.contract.monthly_rent) }}</td>
+                        <td>每月 {{ a.contract.payment_due_day }} 号</td>
+                        <td>
+                            {% if a.days_overdue > 0 %}
+                            <span class="text-danger fw-bold">{{ a.days_overdue }} 天</span>
+                            {% else %}
+                            <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if a.status == 'overdue' %}
+                            <span class="badge badge-overdue">严重逾期</span>
+                            {% elif a.status == 'warning' %}
+                            <span class="badge badge-warning">将逾期</span>
+                            {% elif a.status == 'gentle' %}
+                            <span class="badge bg-info">需提醒</span>
+                            {% else %}
+                            <span class="badge bg-secondary">未到期</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ a.tenant.phone }}</td>
+                        <td>{{ a.tenant.wechat_id or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if not arrears %}
+        <p class="text-center text-success py-5">
+            <i class="bi bi-check-circle fs-3"></i><br>全部已缴，很棒！
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

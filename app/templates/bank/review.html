@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}审核银行流水 — {{ statement.file_name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="/bank" class="text-decoration-none text-muted"><i class="bi bi-arrow-left"></i> 返回</a>
+        <h4 class="fw-bold mt-1"><i class="bi bi-check-circle me-2"></i>审核对账结果</h4>
+        <small class="text-muted">{{ statement.file_name }} · {{ statement.bank_name or '未知银行' }} · {{ statement.uploaded_at }}</small>
+    </div>
+    <div>
+        {% if unreconciled_count > 0 %}
+        <button class="btn btn-success" onclick="confirmAll()">
+            <i class="bi bi-check-all"></i> 一键确认全部高置信匹配 ({{ unreconciled_count }}笔)
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 统计 -->
+<div class="row g-3 mb-4">
+    <div class="col-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="stat-number text-success">{{ high_conf|length }}</div>
+            <div class="stat-label">高置信度</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="stat-number text-warning">{{ medium_conf|length }}</div>
+            <div class="stat-label">中置信度</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="stat-number text-secondary">{{ low_conf|length }}</div>
+            <div class="stat-label">未匹配</div>
+        </div>
+    </div>
+    <div class="col-3">
+        <div class="card card-stat p-3 text-center">
+            <div class="stat-number text-info">{{ total_items }}</div>
+            <div class="stat-label">总交易笔数</div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量确认表单 -->
+<form id="confirmForm" method="POST" action="/bank/confirm">
+    <input type="hidden" name="statement_id" value="{{ statement.id }}">
+    <input type="hidden" name="confirm_ids" id="confirmIds">
+
+    <!-- 高置信度 -->
+    {% if high_conf %}
+    <div class="mb-4">
+        <h5 class="text-success mb-3"><i class="bi bi-check-circle-fill me-2"></i>高置信度匹配（建议一键确认）</h5>
+        {% for item in high_conf %}
+        <div class="card table-card p-3 mb-2 border-start border-success border-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="fw-bold">{{ item.matched_tenant.name if item.matched_tenant else '—' }}</span>
+                    <span class="text-muted ms-2">← {{ item.counterparty_name or '未知' }}</span>
+                    <span class="badge bg-primary ms-2">¥{{ "{:,.2f}".format(item.amount) }}</span>
+                    <span class="text-muted small ms-2">{{ item.transaction_date }}</span>
+                    <span class="badge bg-success ms-2">置信度 {{ (item.match_confidence*100)|int }}%</span>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input confirm-check" type="checkbox"
+                           value="{{ item.id }}"
+                           data-tenant="{{ item.matched_tenant.name if item.matched_tenant else '' }}"
+                           {% if not item.is_reconciled and item.matched_tenant_id %}checked{% endif %}
+                           {% if item.is_reconciled %}disabled{% endif %}>
+                    {% if item.is_reconciled %}
+                    <span class="badge badge-paid"><i class="bi bi-check"></i> 已确认</span>
+                    {% endif %}
+                </div>
+            </div>
+            <small class="text-muted">{{ item.summary or '无摘要' }}</small>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 中置信度 -->
+    {% if medium_conf %}
+    <div class="mb-4">
+        <h5 class="text-warning mb-3"><i class="bi bi-question-circle-fill me-2"></i>中置信度匹配（请人工确认）</h5>
+        {% for item in medium_conf %}
+        <div class="card table-card p-3 mb-2 border-start border-warning border-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="fw-bold">{{ item.matched_tenant.name if item.matched_tenant else '—' }}</span>
+                    <span class="text-muted ms-2">← {{ item.counterparty_name or '未知' }}</span>
+                    <span class="badge bg-primary ms-2">¥{{ "{:,.2f}".format(item.amount) }}</span>
+                    <span class="text-muted small ms-2">{{ item.transaction_date }}</span>
+                    <span class="badge bg-warning ms-2">置信度 {{ (item.match_confidence*100)|int }}%</span>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input confirm-check" type="checkbox"
+                           value="{{ item.id }}"
+                           {% if item.is_reconciled %}disabled checked{% endif %}>
+                </div>
+            </div>
+            <small class="text-muted">{{ item.summary or '无摘要' }}</small>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- 未匹配 -->
+    {% if low_conf %}
+    <div>
+        <h5 class="text-secondary mb-3"><i class="bi bi-x-circle-fill me-2"></i>未能匹配（需手动处理）</h5>
+        {% for item in low_conf %}
+        <div class="card table-card p-3 mb-2 text-muted" style="opacity:0.7">
+            <div>
+                <span>¥{{ "{:,.2f}".format(item.amount) }}</span>
+                <span class="ms-2">{{ item.counterparty_name or '对方未知' }}</span>
+                <span class="ms-2 small">{{ item.transaction_date }}</span>
+                <span class="ms-2 small">{{ item.summary or '' }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="mt-4 text-end">
+        <a href="/bank" class="btn btn-secondary">返回</a>
+        <button type="submit" class="btn btn-success btn-lg">
+            <i class="bi bi-check-lg"></i> 确认所选匹配并自动记账
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function confirmAll() {
+        document.querySelectorAll('.confirm-check:not(:disabled)').forEach(cb => cb.checked = true);
+        document.getElementById('confirmForm').submit();
+    }
+
+    // 提交前收集选中的 ID
+    document.getElementById('confirmForm').addEventListener('submit', function(e) {
+        const ids = [];
+        document.querySelectorAll('.confirm-check:checked:not(:disabled)').forEach(cb => {
+            ids.push(cb.value);
+        });
+        document.getElementById('confirmIds').value = ids.join(',');
+        if (ids.length === 0) {
+            e.preventDefault();
+            alert('请至少选择一个匹配项确认');
+        }
+    });
+</script>
+{% endblock %}

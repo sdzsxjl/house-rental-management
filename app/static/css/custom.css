@@ -1,0 +1,35 @@
+/* 自定义样式补充 */
+.card-stat {
+    transition: all 0.2s ease;
+}
+.card-stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.btn-copy:active {
+    transform: scale(0.95);
+}
+.table td {
+    vertical-align: middle;
+}
+.badge {
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+.page-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0 !important;
+        padding: 1rem !important;
+    }
+    .card-stat .stat-number {
+        font-size: 1.5rem;
+    }
+    .display-4 {
+        font-size: 1.8rem;
+    }
+}

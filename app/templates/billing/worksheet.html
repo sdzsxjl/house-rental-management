@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}账单管理 - 房屋租赁收租管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold m-0"><i class="bi bi-receipt me-2"></i>账单管理</h4>
+    <div class="d-flex gap-2 align-items-center">
+        <form class="d-flex gap-2" method="get" action="/billing">
+            <input type="month" name="month" value="{{ month }}" class="form-control form-control-sm" style="width:160px"
+                   onchange="this.form.submit()">
+            <a href="/billing?month={{ prev_month }}" class="btn btn-sm btn-outline-secondary">&laquo; 上月</a>
+            <a href="/billing" class="btn btn-sm btn-outline-secondary">本月</a>
+        </form>
+        <form method="post" action="/billing/calculate" class="d-inline">
+            <input type="hidden" name="month" value="{{ month }}">
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-calculator"></i> 一键计算
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- 单价信息 -->
+<div class="mb-3">
+    <span class="badge bg-info me-2"><i class="bi bi-droplet"></i> 水 {{ water_unit_price }} 元/方</span>
+    <span class="badge bg-warning"><i class="bi bi-lightning"></i> 电 {{ elec_unit_price }} 元/度</span>
+</div>
+
+<!-- 工作表 -->
+<div class="card table-card">
+    <div class="card-body p-0">
+        <form method="post" action="/billing/save">
+            <input type="hidden" name="month" value="{{ month }}">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr style="font-size:0.85rem">
+                            <th style="min-width:70px">房间</th>
+                            <th style="min-width:60px">租客</th>
+                            <th style="min-width:70px">上月水表</th>
+                            <th style="min-width:90px">本月水表</th>
+                            <th style="min-width:65px">用水(方)</th>
+                            <th style="min-width:70px">上月电表</th>
+                            <th style="min-width:90px">本月电表</th>
+                            <th style="min-width:65px">用电(度)</th>
+                            <th style="min-width:70px">月租金</th>
+                            <th style="min-width:70px">水费</th>
+                            <th style="min-width:70px">电费</th>
+                            <th style="min-width:80px;font-weight:700">合计应收</th>
+                            <th style="min-width:70px">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in rows %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ r.room.full_room_code }}</span></td>
+                            <td>
+                                {% if r.tenant %}
+                                <a href="/tenants/{{ r.tenant.id }}" class="text-decoration-none fw-bold">{{ r.tenant.name }}</a>
+                                {% else %}
+                                <span class="text-muted">空置</span>
+                                {% endif %}
+                            </td>
+                            <!-- 水表 -->
+                            <td class="text-muted small">{{ r.water_prev }}</td>
+                            <td>
+                                <input type="number" name="water_{{ r.room.id }}" step="0.1" min="0"
+                                       value="{{ r.water_cur if r.water_cur is not none else '' }}"
+                                       class="form-control form-control-sm" style="width:85px"
+                                       placeholder="读数">
+                            </td>
+                            <td>
+                                {% if r.water_usage is not none %}
+                                <span class="fw-bold">{{ r.water_usage }}</span>
+                                {% else %}<span class="text-muted">--</span>{% endif %}
+                            </td>
+                            <!-- 电表 -->
+                            <td class="text-muted small">{{ r.elec_prev }}</td>
+                            <td>
+                                <input type="number" name="elec_{{ r.room.id }}" step="0.1" min="0"
+                                       value="{{ r.elec_cur if r.elec_cur is not none else '' }}"
+                                       class="form-control form-control-sm" style="width:85px"
+                                       placeholder="读数">
+                            </td>
+                            <td>
+                                {% if r.elec_usage is not none %}
+                                <span class="fw-bold">{{ r.elec_usage }}</span>
+                                {% else %}<span class="text-muted">--</span>{% endif %}
+                            </td>
+                            <!-- 租金 -->
+                            <td class="fw-bold">¥{{ "{:,.0f}".format(r.monthly_rent) }}</td>
+                            <!-- 水费 -->
+                            <td>
+                                {% if r.water_fee is not none %}
+                                <span class="text-info fw-bold">¥{{ "{:.2f}".format(r.water_fee) }}</span>
+                                {% else %}<span class="text-muted">--</span>{% endif %}
+                            </td>
+                            <!-- 电费 -->
+                            <td>
+                                {% if r.elec_fee is not none %}
+                                <span class="text-warning fw-bold">¥{{ "{:.2f}".format(r.elec_fee) }}</span>
+                                {% else %}<span class="text-muted">--</span>{% endif %}
+                            </td>
+                            <!-- 合计 -->
+                            <td>
+                                {% if r.total is not none %}
+                                <span class="text-danger fw-bold fs-6">¥{{ "{:.2f}".format(r.total) }}</span>
+                                {% else %}<span class="text-muted">--</span>{% endif %}
+                            </td>
+                            <!-- 操作 -->
+                            <td>
+                                <div class="d-flex gap-1">
+                                    {% if r.bill %}
+                                    <a href="/billing/{{ r.bill.id }}" class="btn btn-sm btn-outline-primary" title="详情">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="/billing/{{ r.bill.id }}/delete" class="btn btn-sm btn-outline-danger"
+                                       onclick="return confirm('确定删除该账单？')" title="删除">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if not rows %}
+            <p class="text-center text-muted py-5">暂无活跃房间，请先<a href="/tenants">添加租客</a></p>
+            {% endif %}
+
+            {% if rows %}
+            <!-- 汇总 + 保存 -->
+            <div class="card-footer bg-light">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <div class="d-flex gap-4">
+                            <div>
+                                <small class="text-muted">水费合计</small>
+                                <span class="text-info fw-bold fs-5 ms-2">¥{{ "{:.2f}".format(totals.water) }}</span>
+                            </div>
+                            <div>
+                                <small class="text-muted">电费合计</small>
+                                <span class="text-warning fw-bold fs-5 ms-2">¥{{ "{:.2f}".format(totals.elec) }}</span>
+                            </div>
+                            <div>
+                                <small class="text-muted">房租合计</small>
+                                <span class="fw-bold fs-5 ms-2">¥{{ "{:.2f}".format(totals.rent) }}</span>
+                            </div>
+                            <div>
+                                <small class="text-muted">总计应收</small>
+                                <span class="text-danger fw-bold fs-4 ms-2">¥{{ "{:.2f}".format(totals.grand) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-check-circle"></i> 保存并计算全部
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+{% endblock %}

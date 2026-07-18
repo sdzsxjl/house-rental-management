@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}合同管理 - 房屋租赁收租管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold m-0"><i class="bi bi-file-earmark-text me-2"></i>合同管理</h4>
+    <div>
+        <button class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#aiParseModal">
+            <i class="bi bi-camera"></i> AI 拍照解析合同
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manualContractModal">
+            <i class="bi bi-plus-lg"></i> 手动添加合同
+        </button>
+    </div>
+</div>
+
+<div class="mb-3">
+    <span class="badge bg-success fs-6">{{ active_count }} 份有效合同</span>
+</div>
+
+<div class="card table-card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>租客</th><th>房号</th><th>月租</th><th>押金</th><th>缴费日</th>
+                    <th>开始</th><th>到期</th><th>状态</th><th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in contracts %}
+                <tr>
+                    <td>
+                        <a href="/tenants/{{ c.tenant_id }}" class="text-decoration-none fw-bold">{{ c.tenant.name }}</a>
+                    </td>
+                    <td><span class="badge bg-secondary">{{ c.room.full_room_code }}</span></td>
+                    <td>¥{{ "{:,.0f}".format(c.monthly_rent) }}</td>
+                    <td>¥{{ "{:,.0f}".format(c.deposit) }}</td>
+                    <td>每月 {{ c.payment_due_day }} 号</td>
+                    <td><small>{{ c.contract_start_date }}</small></td>
+                    <td><small>{{ c.contract_end_date }}</small></td>
+                    <td>
+                        {% if c.is_active %}
+                        <span class="badge badge-paid">有效</span>
+                        {% else %}
+                        <span class="badge bg-secondary">已终止</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if c.is_active %}
+                        <a href="/contracts/{{ c.id }}/terminate" class="btn btn-sm btn-outline-danger"
+                           onclick="return confirm('确定终止该合同？')">终止</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if not contracts %}
+    <p class="text-center text-muted py-5">暂无合同记录</p>
+    {% endif %}
+</div>
+
+<!-- AI 拍照解析合同 -->
+<div class="modal fade" id="aiParseModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="/contracts/parse" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-camera me-2"></i>AI 拍照解析合同</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">上传合同照片，AI 自动识别租客姓名、金额、日期等信息并预填表单。</p>
+                    <div class="mb-3">
+                        <label class="form-label">选择合同照片</label>
+                        <input type="file" name="file" class="form-control" accept="image/*" required>
+                    </div>
+                    {% if not llm_enabled %}
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-info-circle"></i> 未配置 AI API Key，解析功能暂不可用。请在 .env 中配置 LLM_API_KEY。
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">开始解析</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 手动添加合同 -->
+<div class="modal fade" id="manualContractModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="/contracts/create">
+                <div class="modal-header">
+                    <h5 class="modal-title">手动添加合同</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">租客</label>
+                            <select name="tenant_id" class="form-select" required>
+                                <option value="">选择租客</option>
+                                {% for t in tenants %}
+                                <option value="{{ t.id }}">{{ t.name }} ({{ t.phone }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">房间</label>
+                            <select name="room_id" class="form-select" required>
+                                <option value="">选择房间</option>
+                                {% for r in rooms %}
+                                <option value="{{ r.id }}">{{ r.full_room_code }} ({{ r.layout or '单间' }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">月租金</label>
+                            <input type="number" name="monthly_rent" class="form-control" step="0.01" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">押金</label>
+                            <input type="number" name="deposit" class="form-control" step="0.01" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">缴费日</label>
+                            <select name="payment_due_day" class="form-select">
+                                {% for d in range(1, 29) %}
+                                <option value="{{ d }}" {% if d==1 %}selected{% endif %}>{{ d }}号</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">合同开始</label>
+                            <input type="date" name="contract_start" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">合同到期</label>
+                            <input type="date" name="contract_end" class="form-control" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">创建合同</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

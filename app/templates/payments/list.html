@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}缴费记录 - 房屋租赁收租管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold m-0"><i class="bi bi-cash-stack me-2"></i>缴费记录</h4>
+    <a href="/payments/arrears" class="btn btn-danger">
+        <i class="bi bi-exclamation-triangle"></i> 查看欠费清单
+    </a>
+</div>
+
+<div class="card table-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>租客</th><th>房号</th><th>月份</th><th>金额</th><th>支付日期</th>
+                        <th>方式</th><th>状态</th><th>备注</th><th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payments %}
+                    <tr>
+                        <td>
+                            <a href="/tenants/{{ p.tenant_id }}" class="text-decoration-none fw-bold">{{ p.tenant.name }}</a>
+                        </td>
+                        <td>
+                            {% if p.contract and p.contract.room %}
+                            <span class="badge bg-secondary">{{ p.contract.room.full_room_code }}</span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>{{ p.rent_month }}</td>
+                        <td class="fw-bold">¥{{ "{:,.0f}".format(p.amount) }}</td>
+                        <td>{{ p.payment_date }}</td>
+                        <td>
+                            {% if p.payment_method == 'wechat' %}<span class="badge bg-success">微信</span>
+                            {% elif p.payment_method == 'alipay' %}<span class="badge bg-primary">支付宝</span>
+                            {% elif p.payment_method == 'bank_transfer' %}<span class="badge bg-info">银行转账</span>
+                            {% elif p.payment_method == 'cash' %}<span class="badge bg-warning">现金</span>
+                            {% else %}<span class="badge bg-secondary">手动</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.is_arrears %}
+                            <span class="badge badge-overdue">逾期{{ p.days_late }}天</span>
+                            {% else %}
+                            <span class="badge badge-paid">正常</span>
+                            {% endif %}
+                        </td>
+                        <td><small>{{ p.notes or '—' }}</small></td>
+                        <td>
+                            <a href="/payments/{{ p.id }}/delete" class="btn btn-sm btn-outline-danger"
+                               onclick="return confirm('确定删除这条缴费记录？')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if not payments %}
+        <p class="text-center text-muted py-5">暂无缴费记录</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

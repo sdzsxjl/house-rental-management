@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}仪表盘 - 房屋租赁收租管理{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="fw-bold m-0"><i class="bi bi-speedometer2 me-2"></i>仪表盘</h4>
+    <span class="text-muted small">{{ stats.month_key }} 收租情况</span>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card card-stat p-3">
+            <div class="stat-label">应收租金</div>
+            <div class="stat-number text-primary">¥{{ "{:,.0f}".format(stats.expected_rent) }}</div>
+            <small class="text-muted">{{ stats.active_contracts }} 户在租</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-stat p-3">
+            <div class="stat-label">已收租金</div>
+            <div class="stat-number text-success">¥{{ "{:,.0f}".format(stats.collected) }}</div>
+            <small class="text-muted">{{ stats.paid_count }} 户已缴</small>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-stat p-3">
+            <div class="stat-label">收缴率</div>
+            <div class="stat-number {% if stats.collection_rate >= 80 %}text-success{% elif stats.collection_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                {{ stats.collection_rate }}%
+            </div>
+            <div class="progress mt-1" style="height:6px">
+                <div class="progress-bar {% if stats.collection_rate >= 80 %}bg-success{% elif stats.collection_rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
+                     style="width:{{ stats.collection_rate }}%"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card card-stat p-3">
+            <div class="stat-label">待催收</div>
+            <div class="stat-number text-danger">{{ stats.unpaid_count }}</div>
+            <small class="text-muted">其中 {{ stats.overdue_count }} 户已逾期</small>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- 收缴趋势图 -->
+    <div class="col-md-8">
+        <div class="card table-card p-3">
+            <h6 class="fw-bold mb-3">📈 近12个月收缴趋势</h6>
+            <canvas id="trendChart" height="220"></canvas>
+        </div>
+    </div>
+
+    <!-- 各楼层情况 -->
+    <div class="col-md-4">
+        <div class="card table-card p-3">
+            <h6 class="fw-bold mb-3">🏢 各楼层收缴率</h6>
+            {% for f in stats.floor_stats %}
+            <div class="d-flex align-items-center mb-2">
+                <span class="me-2 small" style="width:50px">{{ f.floor }} 楼</span>
+                <div class="progress flex-grow-1 me-2" style="height:18px">
+                    <div class="progress-bar {% if f.rate >= 80 %}bg-success{% elif f.rate >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
+                         style="width:{{ f.rate }}%">
+                        <small>{{ f.paid }}/{{ f.occupied }}</small>
+                    </div>
+                </div>
+                <span class="small fw-bold" style="width:40px">{{ f.rate }}%</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 最近缴费 -->
+    <div class="col-md-12">
+        <div class="card table-card p-3">
+            <h6 class="fw-bold mb-3">💳 最近缴费记录</h6>
+            {% if stats.recent_payments %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>租客</th><th>月份</th><th>金额</th><th>日期</th><th>方式</th><th>状态</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in stats.recent_payments %}
+                        <tr>
+                            <td>
+                                <a href="/tenants/{{ p.tenant_id }}" class="text-decoration-none">{{ p.tenant.name }}</a>
+                            </td>
+                            <td>{{ p.rent_month }}</td>
+                            <td class="fw-bold">¥{{ "{:,.0f}".format(p.amount) }}</td>
+                            <td><small>{{ p.payment_date }}</small></td>
+                            <td>
+                                {% if p.payment_method == 'wechat' %}微信
+                                {% elif p.payment_method == 'alipay' %}支付宝
+                                {% elif p.payment_method == 'bank_transfer' %}银行
+                                {% elif p.payment_method == 'cash' %}现金
+                                {% else %}手动
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if p.is_arrears %}
+                                <span class="badge badge-overdue">逾期{{ p.days_late }}天</span>
+                                {% else %}
+                                <span class="badge badge-paid">正常</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-3">暂无缴费记录</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const trendData = {{ stats.monthly_trend | tojson }};
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: trendData.map(d => d.month),
+            datasets: [
+                { label: '应缴户数', data: trendData.map(d => d.total), backgroundColor: '#e2e8f0', borderRadius: 4 },
+                { label: '已缴户数', data: trendData.map(d => d.paid), backgroundColor: '#2ec4b6', borderRadius: 4 },
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: Math.max(1, Math.ceil(Math.max(...trendData.map(d=>d.total))/10)) } }
+            }
+        }
+    });
+</script>
+{% endblock %}
